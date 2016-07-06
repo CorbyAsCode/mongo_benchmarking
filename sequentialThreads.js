@@ -1,6 +1,10 @@
 var Promise = require("bluebird");
 var mongodb = require('mongodb');
-var MongoClient = Promise.promisifyAll(mongodb.MongoClient);
+var MongoClient = mongodb.MongoClient;
+var Collection = mongodb.Collection;
+
+Promise.promisifyAll(Collection.prototype);
+Promise.promisifyAll(MongoClient);
 
 //var collection = db.shardBatch;
 var collection = 'shardSequentialInsert';
@@ -8,58 +12,56 @@ var docCount = 10;
 //var MongoClient = mongodb.MongoClient;
 var url = 'mongodb://localhost:27017/test';
 
-
-//function sequentialInsert(n, collection) {
-  //var startTime = getTime();
-  //var collStartCount = getCount(collection);
-
-  MongoClient.connectAsync(url)
-    .then(function(db) {
-      console.log('Connection established to', url);
-      console.log('typeof db = ' + typeof db);
-      return db.collection('batchInsert').find().toArrayAsync()
-        .then(function(found) {
-          console.log(found)
-        })
-        .finally(db.close());
-    })
-    .catch(console.log.bind(console));
-
-       
-
-      //console.log('collStartCount = ', collStartCount);
-      /*var startTime = getTime();
-      console.log('startTime = ' + startTime);
-      
-      var count = n;
-      for(var i = 0; i < n; i++) {
-        //console.log('i = ' + i + ', n = ' + n);
-        var data = { t: "2013-06-23", n: 7 * i, a: 1, v: 0, j: "1234" }
-        //console.log(data);
-        coll.insert(data, function(err, result){
-          if (err) {
-            console.log(err);
-          } else {
-            count--;
-            console.log(count);
-            if (count == 0) {
-              console.log('Finished');
-              var collFinishCount = getCount(coll);
-              var finishTime = getTime();
-              var totalCount = calcDifference(collStartCount, collFinishCount);
-              var elapsedTime = calcDifference(startTime, finishTime);
-              var throughput = calcThroughput(totalCount, elapsedTime);
-              printResults(totalCount, elapsedTime, throughput);
-              db.close();
-              return;
-            }
+var sequentialInserter = Promise.method(function(n, coll) {
+  return new Promise(function(resolve, reject) {
+    var count = n;
+    for (var i = 0; i < n; i++) {
+      var data = { t: "2013-06-23", n: 7 * i, a: 1, v: 0, j: "1234" };
+      coll.insert(data, function(err, result) {
+        if (err) {
+          reject(err);
+        } else {
+          count--;
+          if (count == 0) {
+            console.log('Finished with sequential inserts');
+            resolve(true);
           }
-        });
-      }
+        }
+      });
     }
   });
-}*/
+});
 
+function promiseSeqInserts(n, collection) {
+  MongoClient.connectAsync(url)
+    .then(function(db) {
+      var coll = db.collection(collection);
+      var startTime = new Date();
+      return coll.countAsync()
+      .then(function(startCount) {
+        return sequentialInserter(n, coll)
+        .then(function() {
+          console.log('Getting final count');
+          return coll.countAsync()
+          .then(function(finishCount) {
+            var finishTime = new Date();
+            var elapsed = finishTime - startTime;
+            var totalInserts = finishCount - startCount;
+            var rate = totalInserts / elapsed * 1000;
+            console.log('elapsed time = ' + elapsed + ' ms');
+            console.log('total inserted = ' + totalInserts);
+            console.log('insert rate = ' + rate + ' docs/sec');
+          });
+        })
+        .finally(function() {
+        db.close()
+        });
+      })
+    })
+    .catch(function() {
+      console.log.bind(console);
+    });    
+}
 
 function sequentialInsertRnd(n, collection) {
   var startTime = getTime();
@@ -106,14 +108,7 @@ function printResults(count, elapsed, throughput) {
 // sequentialInsertRnd(20000);
 //batchInsertRnd(docCount, collection);
 
-//sequentialInsert(docCount, collection); 
-  /*
-  var finishTime = new Date();
-  var collFinishCount = getCount(coll);
-  db.close();
-  var totalCount = calcDifference(collStartCount, collFinishCount);
-  var elapsedTime = calcDifference(startTime, finishTime);
-  var throughput = calcThroughput(totalCount, elapsedTime);
-  printResults(totalCount, elapsedTime, throughput);
-});
-*/
+promiseSeqInserts(docCount, collection);
+
+
+
