@@ -2,15 +2,16 @@ var Promise = require("bluebird");
 var mongodb = require('mongodb');
 var MongoClient = mongodb.MongoClient;
 var Collection = mongodb.Collection;
-
 Promise.promisifyAll(Collection.prototype);
 Promise.promisifyAll(MongoClient);
 
-//var collection = db.shardBatch;
 var collection = 'shardSequentialInsert';
 var docCount = 10;
-//var MongoClient = mongodb.MongoClient;
 var url = 'mongodb://localhost:27017/test';
+
+var dataGenerator() {
+
+}
 
 var sequentialInserter = Promise.method(function(n, coll) {
   return new Promise(function(resolve, reject) {
