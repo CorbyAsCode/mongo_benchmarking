@@ -3,6 +3,8 @@
   "private": true,
   "dependencies": {
     "mongodb": "^2.1.0",
-    "bluebird": "^3.4.0"
+    "bluebird": "^3.4.0",
+    "chance": "1.0.3",
+    "faker": "3.1.0"
   }
 }
